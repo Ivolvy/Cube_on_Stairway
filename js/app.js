@@ -16,46 +16,6 @@ StairwayCubes.prototype.init = function(){
     this.animateBoxes();
 
     this.render();
-
-
-    //Display the axes - usefull for place the elements
-    var axes = buildAxes(1000);
-    this.scene.add(axes);
-
-    function buildAxes(length) {
-        var axes = new THREE.Object3D();
-
-        axes.add(buildAxis(new THREE.Vector3(0, 0, 0), new THREE.Vector3(length, 0, 0), 0xFF0000, false)); // +X
-        axes.add(buildAxis(new THREE.Vector3(0, 0, 0), new THREE.Vector3(-length, 0, 0), 0xFF0000, true)); // -X
-        axes.add(buildAxis(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, length, 0), 0x00FF00, false)); // +Y
-        axes.add(buildAxis(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, -length, 0), 0x00FF00, true)); // -Y
-        axes.add(buildAxis(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, length), 0x0000FF, false)); // +Z
-        axes.add(buildAxis(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -length), 0x0000FF, true)); // -Z
-
-        return axes;
-
-    }
-
-    function buildAxis(src, dst, colorHex, dashed) {
-        var geom = new THREE.Geometry(),
-            mat;
-
-        if (dashed) {
-            mat = new THREE.LineDashedMaterial({linewidth: 3, color: colorHex, dashSize: 3, gapSize: 3});
-        } else {
-            mat = new THREE.LineBasicMaterial({linewidth: 3, color: colorHex});
-        }
-
-        geom.vertices.push(src.clone());
-        geom.vertices.push(dst.clone());
-        geom.computeLineDistances(); // This one is SUPER important, otherwise dashed lines will appear as simple plain lines
-
-        var axis = new THREE.Line(geom, mat, THREE.LinePieces);
-
-        return axis;
-
-    }
-
 };
 
 StairwayCubes.prototype.createCamera = function(){
@@ -63,8 +23,14 @@ StairwayCubes.prototype.createCamera = function(){
     this.camera.position.x = 100;
     this.camera.position.y = 100;
     this.camera.position.z = 100;
-    //this.camera.updateProjectionMatrix();
-    this.camera.lookAt(this.scene.position);
+
+    this.camera.lookAt(new THREE.Vector3(0,0,0));
+    this.camera.zoom = 1.1;
+    this.camera.updateProjectionMatrix();
+
+    //Adjust the scene to center the stairs
+    this.scene.position.z=150;
+    this.scene.position.y=-50;
 };
 
 StairwayCubes.prototype.createRenderer = function(){
@@ -79,9 +45,16 @@ StairwayCubes.prototype.createRenderer = function(){
 };
 
 StairwayCubes.prototype.createBoxes = function(){
+    this.numberOfStairs = 5;
+    this.repeatBoxeAnimation = this.numberOfStairs - 1;
+    this.stairs = [];
+    var positionZStart = -25; //start position of the stairs on their Z axis
+
+
     var geometry = new THREE.BoxGeometry( 50, 50, 50 );
     var material = new THREE.MeshLambertMaterial( { color: 0xf2f2f2, shading: THREE.FlatShading});
 
+    //boxe container is usefull to rotate the boxe around his edge
     this.boxeContainer = new THREE.Object3D();
     this.boxeContainer.rotation.x = -2*Math.PI;
     this.boxeContainer.position.y = 50;
@@ -91,29 +64,24 @@ StairwayCubes.prototype.createBoxes = function(){
     this.boxe.position.x = 0;
     this.boxe.position.y = -25;
     this.boxe.position.z = 25;
+    this.boxe.castShadow = true;
 
     this.boxeContainer.add(this.boxe);
     this.scene.add(this.boxeContainer);
 
-
+    //We create the stairs
     var geometryStair = new THREE.BoxGeometry( 50, 51, 50 );
     geometryStair.applyMatrix(new THREE.Matrix4().makeTranslation(0, 25, 0)); //permit to change the origin point to the box floor
 
-
-    var numberOfStairs = 5;
-    this.stairs = [];
-    var ZpositionStart = -25;
-
-    for(var i=1;i<=numberOfStairs;i++){
+    for(var i=1;i<=this.numberOfStairs;i++){
         this.stairs[i] = new THREE.Mesh( geometryStair, material );
         this.stairs[i].position.y = -1;
-        this.stairs[i].position.z = ZpositionStart - 50;
+        this.stairs[i].position.z = positionZStart - 50;
         this.stairs[i].scale.y = 0;
-        ZpositionStart-= 50;
-
+        this.stairs[i].castShadow = true;
+        positionZStart-= 50;
         this.scene.add(this.stairs[i]);
     }
-
 };
 
 StairwayCubes.prototype.createFloor = function(){
@@ -121,43 +89,38 @@ StairwayCubes.prototype.createFloor = function(){
     var material2 = new THREE.MeshBasicMaterial( { color: 0xf2f2f2 } );
     var floor = new THREE.Mesh( geometry2, material2 );
     floor.material.side = THREE.DoubleSide;
-    floor.position.y =0;
     floor.rotation.x = 90*Math.PI/180;
-    floor.rotation.y = 0;
-    floor.rotation.z = 0;
     floor.doubleSided = true;
     floor.receiveShadow = true;
     this.scene.add(floor);
 };
 
 StairwayCubes.prototype.createLights = function(){
-    //scene.add(new THREE.AmbientLight(0x666666));
+    this.scene.add(new THREE.AmbientLight(0x5b5b5b));
 
     var shadowLight = new THREE.DirectionalLight( 0xffffff, 0.5 );
-    shadowLight.position.set( 0, 60, 0 );
+    shadowLight.position.set( -1000, 1000, 0 );
+    shadowLight.target.position.set(this.scene.position);
     shadowLight.castShadow = true;
     shadowLight.shadowDarkness = 0.1;
-    //directionalLightshadow.shadowCameraVisible = true;
-    shadowLight.shadowCameraFar = 1000;
+    //shadowLight.shadowCameraVisible = true;
     this.scene.add(shadowLight);
 
-
     var directionalLight = new THREE.DirectionalLight( 0xffffff, 0.5 );
-    directionalLight.position.set( 10, 40, 50 );
+    directionalLight.position.set( -1000, 1000, 0 );
+    directionalLight.target.position.set(this.scene.position);
     this.scene.add( directionalLight );
 };
 
+/*The boxe climb the stairs*/
 StairwayCubes.prototype.animateBoxes = function(){
-    this.tl = new TimelineMax({repeat: 4 , delay: 1.5, repeatDelay:0, onComplete:this.reverseAnimation});
+    this.tl = new TimelineMax({repeat: that.repeatBoxeAnimation , delay: 1.2, repeatDelay:0, onComplete:this.reverseAnimation});
     this.tl.to(this.boxeContainer.rotation, 0.8, {x: -3*Math.PI, ease: Power1.easeInOut, onComplete:this.increaseValue});
 
-
-    this.t2 = new TimelineMax({repeat: 0 , delay: 0.9, repeatDelay:0});
-    this.t2.to(this.stairs[1].scale, 0.8, {y: 1, ease: Expo.easeInOut});
-    this.t2.to(this.stairs[2].scale, 0.8, {y: 2, ease: Expo.easeInOut});
-    this.t2.to(this.stairs[3].scale, 0.8, {y: 3, ease: Expo.easeInOut});
-    this.t2.to(this.stairs[4].scale, 0.8, {y: 4, ease: Expo.easeInOut});
-    this.t2.to(this.stairs[5].scale, 0.8, {y: 5, ease: Expo.easeInOut});
+    this.t2 = new TimelineMax({repeat: 0 , delay: 0.60, repeatDelay:0});
+    for(var i=1;i<=this.numberOfStairs;i++) {
+        this.t2.to(this.stairs[i].scale, 0.8, {y: i, ease: Expo.easeInOut});
+    }
 };
 
 /*Increase boxe Container value to increase in height the cube rotation*/
@@ -187,32 +150,23 @@ StairwayCubes.prototype.resetAnimations = function(){
     that.increaseValue();
 
     setTimeout(function(){
-        that.tl.restart();
-        that.t2.restart();
-    }, 2000);
+        that.t2.play(0);
+        setTimeout(function(){
+            that.tl.play(0);
+        },600);
+    }, 1000);
 };
 
 /*The cube down stairs*/
 StairwayCubes.prototype.reverseAnimation = function(){
     that.decreaseValue();
-    that.t3 = new TimelineMax({repeat: 4 , delay: 1.5, repeatDelay:0, onComplete:that.resetAnimations});
+    that.t3 = new TimelineMax({repeat: that.repeatBoxeAnimation , delay: 1.5, repeatDelay:0, onComplete:that.resetAnimations});
     that.t3.to(that.boxeContainer.rotation, 0.8, {x: 3*Math.PI, ease: Power1.easeInOut, onComplete:that.decreaseValue});
 
-    this.t4 = new TimelineMax({repeat: 0 , delay: 0.5, repeatDelay:0});
-    this.t4.to(that.stairs[5].scale, 0.8, {y: 5, ease: Expo.easeInOut});
-    this.t4.to(that.stairs[4].scale, 0.8, {y: 4, ease: Expo.easeInOut});
-
-    this.t4.to(that.stairs[3].scale, 0.8, {y: 3, ease: Expo.easeInOut});
-    this.t4.to(that.stairs[5].scale, 0.8, {y: 0, ease: Back.easeInOut},"=-1");
-
-    this.t4.to(that.stairs[2].scale, 0.8, {y: 2, ease: Expo.easeInOut});
-    this.t4.to(that.stairs[4].scale, 0.8, {y: 0, ease: Back.easeInOut},"=-1");
-
-    this.t4.to(that.stairs[1].scale, 0.8, {y: 1, ease: Expo.easeInOut});
-    this.t4.to(that.stairs[3].scale, 0.8, {y: 0, ease: Back.easeInOut},"=-1");
-    this.t4.to(that.stairs[2].scale, 0.8, {y: 0, ease: Back.easeInOut},"=-0.4");
-
-    this.t4.to(that.stairs[1].scale, 0.8, {y: 0, ease: Back.easeInOut});
+    this.t4 = new TimelineMax({repeat: 0 , delay: 2.2, repeatDelay:0});
+    for(var i=that.numberOfStairs;i>=1;i--) {
+        this.t4.to(that.stairs[i].scale, 0.8, {y: 0, ease: Back.easeInOut});
+    }
 
 };
 
